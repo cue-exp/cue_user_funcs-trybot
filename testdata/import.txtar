@@ -1,0 +1,53 @@
+env HOME=$WORK/.home
+
+# Tidy the CUE module to resolve dependencies.
+exec cue mod tidy
+
+# Export using our tool, which discovers @inject attrs transitively.
+exec cue_user_funcs export .
+cmp stdout expected.json
+
+-- cue.mod/module.cue --
+module: "test.example"
+language: {
+	version: "v0.16.0"
+}
+deps: {
+	"github.com/myitcvscratch/cue_user_funcs@v0": {
+		v: "v0.0.1"
+	}
+}
+-- example.cue --
+package example
+
+import (
+	"github.com/myitcvscratch/cue_user_funcs/semver"
+	"github.com/myitcvscratch/cue_user_funcs/sprig"
+)
+
+// semver functions
+version:   "v1.2.3-beta+build456"
+isValid:   semver.#IsValid(version)
+canonical: semver.#Canonical(version)
+major:     semver.#Major(version)
+compare:   semver.#Compare("v1.0.0", "v2.0.0")
+
+// sprig functions
+title:     sprig.#Title("hello world")
+snakecase: sprig.#Snakecase("HelloWorld")
+kebabcase: sprig.#Kebabcase("HelloWorld")
+trunc:     sprig.#Trunc(5, "hello world")
+plural:    sprig.#Plural("item", "items", 3)
+-- expected.json --
+{
+    "canonical": "v1.2.3-beta",
+    "compare": -1,
+    "isValid": true,
+    "kebabcase": "hello-world",
+    "major": "v1",
+    "plural": "items",
+    "snakecase": "hello_world",
+    "title": "Hello World",
+    "trunc": "hello",
+    "version": "v1.2.3-beta+build456"
+}
