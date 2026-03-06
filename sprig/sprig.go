@@ -9,11 +9,6 @@ import (
 	"github.com/huandu/xstrings"
 )
 
-// Title returns a copy of s with the first letter of each word capitalized.
-func Title(s string) string {
-	return strings.Title(s) //nolint:staticcheck // matches Sprig behavior
-}
-
 // Untitle returns a copy of s with the first letter of each word lowercased.
 func Untitle(s string) string {
 	return goutils.Uncapitalize(s)

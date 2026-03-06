@@ -7,28 +7,24 @@ cmp stdout expected.json
 
 package example
 
-#Title:         _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Title")
-#Untitle:       _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Untitle")
-#Substr:        _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Substr")
-#Nospace:       _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Nospace")
-#Trunc:         _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Trunc")
-#Abbrev:        _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Abbrev")
-#Abbrevboth:    _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Abbrevboth")
-#Initials:      _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Initials")
-#Wrap:          _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Wrap")
-#WrapWith:      _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.WrapWith")
-#Indent:        _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Indent")
-#Nindent:       _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Nindent")
-#Snakecase:     _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Snakecase")
-#Camelcase:     _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Camelcase")
-#Kebabcase:     _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Kebabcase")
-#Swapcase:      _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Swapcase")
-#Plural:        _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Plural")
-#SemverCompare: _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.SemverCompare")
-#Semver:        _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Semver")
-
-// Title
-t1: #Title("hello world")
+#Untitle:       _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Untitle")
+#Substr:        _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Substr")
+#Nospace:       _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Nospace")
+#Trunc:         _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Trunc")
+#Abbrev:        _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Abbrev")
+#Abbrevboth:    _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Abbrevboth")
+#Initials:      _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Initials")
+#Wrap:          _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Wrap")
+#WrapWith:      _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.WrapWith")
+#Indent:        _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Indent")
+#Nindent:       _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Nindent")
+#Snakecase:     _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Snakecase")
+#Camelcase:     _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Camelcase")
+#Kebabcase:     _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Kebabcase")
+#Swapcase:      _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Swapcase")
+#Plural:        _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Plural")
+#SemverCompare: _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.SemverCompare")
+#Semver:        _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Semver")
 
 // Untitle
 t2: #Untitle("Hello World")
@@ -93,7 +89,6 @@ t26: #Semver("1.2.3")
 t27: #Semver("1.2.3-beta.1+c0ff33")
 -- expected.json --
 {
-    "t1": "Hello World",
     "t10": "hello world",
     "t11": "...5678 a...",
     "t12": "HW",

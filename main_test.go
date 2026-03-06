@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/rogpeppe/go-internal/testscript"
 )
+
+var update = flag.Bool("update", false, "update testscript golden files")
 
 // runCue provides a "cue" command for testscript CLI tests.
 // It reads the GOTEST_CUE_PATH env var (set by Setup) to find
@@ -65,7 +68,8 @@ func TestScript(t *testing.T) {
 	}
 
 	testscript.Run(t, testscript.Params{
-		Dir: "testdata",
+		Dir:           "testdata",
+		UpdateScripts: *update,
 		Setup: func(e *testscript.Env) error {
 			e.Vars = append(e.Vars,
 				"GOTEST_CUE_PATH="+string(cuePath[:len(cuePath)-1]),
