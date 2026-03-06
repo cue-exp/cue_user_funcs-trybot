@@ -7,4 +7,6 @@ import (
 
 command: gen: {
 	workflows: repo.writeWorkflows & {#in: workflows: github.workflows}
+
+	codereviewCfg: repo.writeCodereviewCfg
 }
