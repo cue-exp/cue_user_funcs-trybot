@@ -49,7 +49,7 @@ valid: semver.#IsValid("v1.2.3")
 ### sprig
 
 Provides [sprig](https://masterminds.github.io/sprig/)-compatible string
-functions: `#Title`, `#Untitle`, `#Substr`, `#Nospace`, `#Trunc`, `#Abbrev`,
+functions: `#Untitle`, `#Substr`, `#Nospace`, `#Trunc`, `#Abbrev`,
 `#Abbrevboth`, `#Initials`, `#Wrap`, `#WrapWith`, `#Indent`, `#Nindent`,
 `#Snakecase`, `#Camelcase`, `#Kebabcase`, `#Swapcase`, `#Plural`,
 `#SemverCompare`, `#Semver`.
