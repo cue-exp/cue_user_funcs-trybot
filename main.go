@@ -8,7 +8,7 @@ import (
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/load"
-	"example.com/cue-user-funcs/sprig"
+	"github.com/myitcvscratch/cue_user_funcs/sprig"
 	"golang.org/x/mod/semver"
 )
 
@@ -64,82 +64,82 @@ func run() error {
 	}, cue.Name("golang.org/x/mod/semver.Build")))
 
 	// Register sprig string functions.
-	j.Register("example.com/cue-user-funcs/sprig.Title", cue.PureFunc1(func(s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Title", cue.PureFunc1(func(s string) (string, error) {
 		return sprig.Title(s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Title")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Title")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Untitle", cue.PureFunc1(func(s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Untitle", cue.PureFunc1(func(s string) (string, error) {
 		return sprig.Untitle(s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Untitle")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Untitle")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Substr", cue.PureFunc3(func(start, end int, s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Substr", cue.PureFunc3(func(start, end int, s string) (string, error) {
 		return sprig.Substr(start, end, s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Substr")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Substr")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Nospace", cue.PureFunc1(func(s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Nospace", cue.PureFunc1(func(s string) (string, error) {
 		return sprig.Nospace(s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Nospace")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Nospace")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Trunc", cue.PureFunc2(func(n int, s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Trunc", cue.PureFunc2(func(n int, s string) (string, error) {
 		return sprig.Trunc(n, s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Trunc")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Trunc")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Abbrev", cue.PureFunc2(func(width int, s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Abbrev", cue.PureFunc2(func(width int, s string) (string, error) {
 		return sprig.Abbrev(width, s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Abbrev")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Abbrev")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Abbrevboth", cue.PureFunc3(func(left, right int, s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Abbrevboth", cue.PureFunc3(func(left, right int, s string) (string, error) {
 		return sprig.Abbrevboth(left, right, s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Abbrevboth")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Abbrevboth")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Initials", cue.PureFunc1(func(s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Initials", cue.PureFunc1(func(s string) (string, error) {
 		return sprig.Initials(s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Initials")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Initials")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Wrap", cue.PureFunc2(func(width int, s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Wrap", cue.PureFunc2(func(width int, s string) (string, error) {
 		return sprig.Wrap(width, s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Wrap")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Wrap")))
 
-	j.Register("example.com/cue-user-funcs/sprig.WrapWith", cue.PureFunc3(func(width int, sep, s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.WrapWith", cue.PureFunc3(func(width int, sep, s string) (string, error) {
 		return sprig.WrapWith(width, sep, s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.WrapWith")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.WrapWith")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Indent", cue.PureFunc2(func(spaces int, s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Indent", cue.PureFunc2(func(spaces int, s string) (string, error) {
 		return sprig.Indent(spaces, s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Indent")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Indent")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Nindent", cue.PureFunc2(func(spaces int, s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Nindent", cue.PureFunc2(func(spaces int, s string) (string, error) {
 		return sprig.Nindent(spaces, s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Nindent")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Nindent")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Snakecase", cue.PureFunc1(func(s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Snakecase", cue.PureFunc1(func(s string) (string, error) {
 		return sprig.Snakecase(s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Snakecase")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Snakecase")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Camelcase", cue.PureFunc1(func(s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Camelcase", cue.PureFunc1(func(s string) (string, error) {
 		return sprig.Camelcase(s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Camelcase")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Camelcase")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Kebabcase", cue.PureFunc1(func(s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Kebabcase", cue.PureFunc1(func(s string) (string, error) {
 		return sprig.Kebabcase(s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Kebabcase")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Kebabcase")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Swapcase", cue.PureFunc1(func(s string) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Swapcase", cue.PureFunc1(func(s string) (string, error) {
 		return sprig.Swapcase(s), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Swapcase")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Swapcase")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Plural", cue.PureFunc3(func(one, many string, count int) (string, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Plural", cue.PureFunc3(func(one, many string, count int) (string, error) {
 		return sprig.Plural(one, many, count), nil
-	}, cue.Name("example.com/cue-user-funcs/sprig.Plural")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Plural")))
 
 	// Register sprig semver functions.
-	j.Register("example.com/cue-user-funcs/sprig.SemverCompare", cue.PureFunc2(func(constraint, version string) (bool, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.SemverCompare", cue.PureFunc2(func(constraint, version string) (bool, error) {
 		return sprig.SemverCompare(constraint, version)
-	}, cue.Name("example.com/cue-user-funcs/sprig.SemverCompare")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.SemverCompare")))
 
-	j.Register("example.com/cue-user-funcs/sprig.Semver", cue.PureFunc1(func(version string) (*sprig.SemverVersion, error) {
+	j.Register("github.com/myitcvscratch/cue_user_funcs/sprig.Semver", cue.PureFunc1(func(version string) (*sprig.SemverVersion, error) {
 		return sprig.Semver(version)
-	}, cue.Name("example.com/cue-user-funcs/sprig.Semver")))
+	}, cue.Name("github.com/myitcvscratch/cue_user_funcs/sprig.Semver")))
 
 	// Load the CUE package from the specified directory.
 	cfg := &load.Config{Dir: dir}

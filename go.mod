@@ -1,4 +1,4 @@
-module example.com/cue-user-funcs
+module github.com/myitcvscratch/cue_user_funcs
 
 go 1.25.0
 
