@@ -8,7 +8,7 @@ module with the right dependencies, builds it, and execs it.
 This uses CUE's WIP user-provided functions and value injection proposals
 ([#4293](https://github.com/cue-lang/proposal/blob/main/designs/4293-user-functions-and-validators.md),
 [#4294](https://github.com/cue-lang/proposal/blob/main/designs/4294-value-injection.md))
-via a [fork](https://github.com/myitcvforks/cue/tree/user_funcs_etc) of
+via a [fork](https://github.com/cue-exp/cue/tree/user_funcs_etc) of
 `cuelang.org/go`.
 
 ## Usage
@@ -31,7 +31,7 @@ attributes. The program:
 
 ## CUE packages
 
-This module is also a CUE module (`github.com/myitcvscratch/cue_user_funcs`)
+This module is also a CUE module (`github.com/cue-exp/cue_user_funcs`)
 that provides reusable CUE packages:
 
 ### semver
@@ -41,7 +41,7 @@ functions: `#IsValid`, `#Compare`, `#Canonical`, `#Major`, `#MajorMinor`,
 `#Prerelease`, `#Build`.
 
 ```cue
-import "github.com/myitcvscratch/cue_user_funcs/semver"
+import "github.com/cue-exp/cue_user_funcs/semver"
 
 valid: semver.#IsValid("v1.2.3")
 ```
@@ -55,7 +55,7 @@ functions: `#Title`, `#Untitle`, `#Substr`, `#Nospace`, `#Trunc`, `#Abbrev`,
 `#SemverCompare`, `#Semver`.
 
 ```cue
-import "github.com/myitcvscratch/cue_user_funcs/sprig"
+import "github.com/cue-exp/cue_user_funcs/sprig"
 
 title: sprig.#Title("hello world")
 ```
@@ -70,7 +70,7 @@ module@version/subpath.FuncName
 
 For example:
 - `golang.org/x/mod@v0.33.0/semver.IsValid`
-- `github.com/myitcvscratch/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Title`
+- `github.com/cue-exp/cue_user_funcs@v0.0.0-20260306160924-85e7d61cf247/sprig.Title`
 
 ## CUE package setup
 
@@ -92,7 +92,7 @@ Alternatively, import the provided CUE packages which handle the wiring:
 ```cue
 package mypackage
 
-import "github.com/myitcvscratch/cue_user_funcs/semver"
+import "github.com/cue-exp/cue_user_funcs/semver"
 
 result: semver.#IsValid("v1.0.0")
 ```

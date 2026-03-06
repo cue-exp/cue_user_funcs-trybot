@@ -1,4 +1,4 @@
-module github.com/myitcvscratch/cue_user_funcs
+module github.com/cue-exp/cue_user_funcs
 
 go 1.25.0
 
@@ -35,6 +35,6 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 )
 
-replace cuelang.org/go v0.16.0 => github.com/myitcvforks/cue v0.0.0-20260306105357-d03fc6701a45
+replace cuelang.org/go v0.16.0 => github.com/cue-exp/cue v0.0.0-20260306105357-d03fc6701a45
 
 tool cuelang.org/go/cmd/cue

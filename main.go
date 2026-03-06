@@ -240,7 +240,7 @@ go 1.25.0
 
 require cuelang.org/go v0.16.0
 
-replace cuelang.org/go v0.16.0 => github.com/myitcvforks/cue v0.0.0-20260306105357-d03fc6701a45
+replace cuelang.org/go v0.16.0 => github.com/cue-exp/cue v0.0.0-20260306105357-d03fc6701a45
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o666); err != nil {
 		return err

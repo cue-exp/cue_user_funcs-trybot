@@ -6,7 +6,7 @@ A Go program that emulates `cue export` with user-provided functions. It
 dynamically discovers `@inject` attributes in CUE code, resolves backing Go
 functions from version-qualified package paths, generates a temporary Go module,
 builds it, and execs it. Uses a fork of `cuelang.org/go`
-(`github.com/myitcvforks/cue`, branch `user_funcs_etc`) that implements WIP
+(`github.com/cue-exp/cue`, branch `user_funcs_etc`) that implements WIP
 user-provided functions and value injection.
 
 This module is also a CUE module providing reusable CUE packages (`semver`,

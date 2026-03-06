@@ -73,7 +73,7 @@ jobs:
         with:
           cache: go
       - if: |-
-          github.repository == 'myitcvscratch/cue_user_funcs' && (((github.ref == 'refs/heads/main') && (! (contains(github.event.head_commit.message, '
+          github.repository == 'cue-exp/cue_user_funcs' && (((github.ref == 'refs/heads/main') && (! (contains(github.event.head_commit.message, '
           Dispatch-Trailer: {"type":"')))) || (github.ref == 'refs/heads/ci/test'))
         run: go env -w GOFLAGS=-count=1
       - name: Early git and code sanity checks
@@ -89,7 +89,7 @@ jobs:
       - name: Race test
         run: go test -race ./...
         if: |-
-          github.repository == 'myitcvscratch/cue_user_funcs' && (((github.ref == 'refs/heads/main') && (! (contains(github.event.head_commit.message, '
+          github.repository == 'cue-exp/cue_user_funcs' && (((github.ref == 'refs/heads/main') && (! (contains(github.event.head_commit.message, '
           Dispatch-Trailer: {"type":"')))) || (github.ref == 'refs/heads/ci/test'))
       - env:
           STATICCHECK_CACHE: /cache/staticcheck

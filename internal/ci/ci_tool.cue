@@ -1,8 +1,8 @@
 package ci
 
 import (
-	"github.com/myitcvscratch/cue_user_funcs/internal/ci/repo"
-	"github.com/myitcvscratch/cue_user_funcs/internal/ci/github"
+	"github.com/cue-exp/cue_user_funcs/internal/ci/repo"
+	"github.com/cue-exp/cue_user_funcs/internal/ci/github"
 )
 
 command: gen: {
