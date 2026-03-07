@@ -1,0 +1,44 @@
+env HOME=$WORK/.home
+exec cue_user_funcs export --shim .
+cmp stdout expected_shim.go
+
+exec cue_user_funcs export .
+cmp stdout expected.json
+
+-- example.cue --
+@extern(inject)
+
+package example
+
+#Parse: _ @inject(name="net/url@v0.Parse")
+
+parsed: #Parse("https://example.com:8080/path?q=1&r=2#frag")
+-- expected_shim.go --
+package main
+
+import (
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
+	pkg1 "net/url"
+)
+
+func registerAll(j *cuecontext.Injector) {
+	j.Register("net/url@v0.Parse", cue.PureFunc1(func(a0 string) (*pkg1.URL, error) {
+		return pkg1.Parse(a0)
+	}, cue.Name("net/url@v0.Parse")))
+}
+-- expected.json --
+{
+    "parsed": {
+        "ForceQuery": false,
+        "Fragment": "frag",
+        "Host": "example.com:8080",
+        "OmitHost": false,
+        "Opaque": "",
+        "Path": "/path",
+        "RawFragment": "",
+        "RawPath": "",
+        "RawQuery": "q=1\u0026r=2",
+        "Scheme": "https"
+    }
+}

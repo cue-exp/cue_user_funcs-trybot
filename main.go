@@ -407,6 +407,15 @@ type funcRef struct {
 // injectNameRe matches "module@version/subpath.Func" or "module@version.Func" (no subpath).
 var injectNameRe = regexp.MustCompile(`^(.+)@(v[^/]+?)(?:/(.+))?\.([A-Z]\w*)$`)
 
+// isStdlib reports whether the given module path refers to a Go standard
+// library package. By convention, external module paths contain a dot in
+// the first path element (e.g. "golang.org/x/mod"), while stdlib paths
+// do not (e.g. "net/url", "fmt").
+func isStdlib(module string) bool {
+	first, _, _ := strings.Cut(module, "/")
+	return !strings.Contains(first, ".")
+}
+
 func parseInjectNames(names []string) ([]funcRef, error) {
 	var funcs []funcRef
 	for _, name := range names {
@@ -449,8 +458,12 @@ replace cuelang.org/go v0.16.0 => github.com/cue-exp/cue v0.0.0-20260306105357-d
 	}
 
 	// Add a require for each unique module@version.
+	// Skip standard library packages which don't need a require directive.
 	seen := map[string]bool{}
 	for _, f := range funcs {
+		if isStdlib(f.Module) {
+			continue
+		}
 		key := f.Module + "@" + f.Version
 		if seen[key] {
 			continue
