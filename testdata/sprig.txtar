@@ -2,9 +2,15 @@ env HOME=$WORK/.home
 exec cue_user_funcs export --shim .
 cmp stdout expected_shim.go
 
+exec cue_user_funcs mod tidy
 exec cue_user_funcs export .
 cmp stdout expected.json
 
+-- cue.mod/module.cue --
+module: "test.example"
+language: {
+	version: "v0.16.0"
+}
 -- example.cue --
 @extern(inject)
 

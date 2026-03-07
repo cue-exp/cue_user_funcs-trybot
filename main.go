@@ -47,10 +47,24 @@ func debugf(format string, args ...any) {
 }
 
 func run() error {
-	if len(os.Args) < 2 || os.Args[1] != "export" {
-		return fmt.Errorf("usage: %s export [-shim] [-debug] <directory>", os.Args[0])
+	if len(os.Args) < 2 {
+		return fmt.Errorf("usage: %s {export|mod tidy}", os.Args[0])
 	}
 
+	switch os.Args[1] {
+	case "export":
+		return runExport()
+	case "mod":
+		if len(os.Args) < 3 || os.Args[2] != "tidy" {
+			return fmt.Errorf("usage: %s mod tidy", os.Args[0])
+		}
+		return runModTidy()
+	default:
+		return fmt.Errorf("unknown command %q", os.Args[1])
+	}
+}
+
+func runExport() error {
 	exportFlags := flag.NewFlagSet("export", flag.ContinueOnError)
 	showShim := exportFlags.Bool("shim", false, "print the generated Go shim and exit")
 	debugFlag := exportFlags.Bool("debug", false, "print cache diagnostics to stderr")
@@ -90,16 +104,15 @@ func run() error {
 		return err
 	}
 
-	// Read inject.sum from the CUE module if it exists.
-	var injectSumPath string
-	var injectSumData []byte
-	if inst.Root != "" {
-		injectSumPath = filepath.Join(inst.Root, "cue.mod", "inject.sum")
-		data, err := os.ReadFile(injectSumPath)
-		if err == nil {
-			injectSumData = data
-		}
+	// Require a CUE module context.
+	cueModDir := filepath.Join(inst.Root, "cue.mod")
+	if _, err := os.Stat(filepath.Join(cueModDir, "module.cue")); err != nil {
+		return fmt.Errorf("not in a CUE module (no cue.mod/module.cue found)")
 	}
+
+	// Read inject.mod and inject.sum from the CUE module.
+	injectModData, _ := os.ReadFile(filepath.Join(cueModDir, "inject.mod"))
+	injectSumData, _ := os.ReadFile(filepath.Join(cueModDir, "inject.sum"))
 
 	// Open the artifact cache.
 	c, err := openCache()
@@ -177,26 +190,23 @@ func run() error {
 		return err
 	}
 
-	// Write go.mod.
-	if err := writeGoMod(tmpDir, funcs); err != nil {
-		return err
-	}
-
 	// Write the generated register.go.
 	if err := os.WriteFile(filepath.Join(tmpDir, "register.go"), shimBytes, 0o666); err != nil {
 		return err
 	}
 
-	// Seed go.sum from inject.sum so the Go toolchain verifies checksums.
+	// Use inject.mod/inject.sum from the CUE module.
+	// These are produced by "mod tidy" and must exist before export can build.
+	if len(injectModData) == 0 {
+		return fmt.Errorf("cue.mod/inject.mod not found; run '%s mod tidy' first", os.Args[0])
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), injectModData, 0o666); err != nil {
+		return err
+	}
 	if len(injectSumData) > 0 {
 		if err := os.WriteFile(filepath.Join(tmpDir, "go.sum"), injectSumData, 0o666); err != nil {
 			return err
 		}
-	}
-
-	// Run go mod tidy.
-	if err := goCmd(tmpDir, "mod", "tidy"); err != nil {
-		return fmt.Errorf("go mod tidy: %w", err)
 	}
 
 	// Build the generated module.
@@ -205,12 +215,17 @@ func run() error {
 		return fmt.Errorf("go build: %w", err)
 	}
 
-	// Update inject.sum from the build's go.sum, but only if the cue.mod
-	// directory exists (i.e. we're inside a CUE module).
-	if injectSumPath != "" {
-		if goSum, err := os.ReadFile(filepath.Join(tmpDir, "go.sum")); err == nil {
-			if _, err := os.Stat(filepath.Dir(injectSumPath)); err == nil {
-				if err := os.WriteFile(injectSumPath, goSum, 0o666); err != nil {
+	// Update inject.mod and inject.sum from the build's go.mod and go.sum,
+	// but only if the cue.mod directory exists (i.e. we're inside a CUE module).
+	if cueModDir != "" {
+		if _, err := os.Stat(cueModDir); err == nil {
+			if goMod, err := os.ReadFile(filepath.Join(tmpDir, "go.mod")); err == nil {
+				if err := os.WriteFile(filepath.Join(cueModDir, "inject.mod"), goMod, 0o666); err != nil {
+					return fmt.Errorf("updating inject.mod: %w", err)
+				}
+			}
+			if goSum, err := os.ReadFile(filepath.Join(tmpDir, "go.sum")); err == nil {
+				if err := os.WriteFile(filepath.Join(cueModDir, "inject.sum"), goSum, 0o666); err != nil {
 					return fmt.Errorf("updating inject.sum: %w", err)
 				}
 			}
@@ -227,6 +242,128 @@ func run() error {
 	// Exec the built binary, replacing the current process.
 	execArgs := []string{binPath, "export", absDir}
 	return syscall.Exec(binPath, execArgs, os.Environ())
+}
+
+// findModuleRoot walks up from dir looking for cue.mod/module.cue.
+func findModuleRoot(dir string) (string, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(abs, "cue.mod", "module.cue")); err == nil {
+			return abs, nil
+		}
+		parent := filepath.Dir(abs)
+		if parent == abs {
+			return "", fmt.Errorf("no CUE module found (no cue.mod/module.cue in any parent)")
+		}
+		abs = parent
+	}
+}
+
+func runModTidy() error {
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	modRoot, err := findModuleRoot(wd)
+	if err != nil {
+		return err
+	}
+
+	// Run cue mod tidy first.
+	cmd := exec.Command("cue", "mod", "tidy")
+	cmd.Dir = modRoot
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("cue mod tidy: %w", err)
+	}
+
+	// Load all CUE packages in the module to discover @inject attributes.
+	// Ideally this would walk .cue files the same way cue mod tidy does
+	// (direct filesystem walk via modimports.AllModuleFiles), but we use
+	// cue/load with "./..." as a simpler approximation for now.
+	cfg := &load.Config{Dir: modRoot}
+	instances := load.Instances([]string{"./..."}, cfg)
+
+	var allNames []string
+	for _, inst := range instances {
+		if inst.Err != nil {
+			continue
+		}
+		allNames = append(allNames, collectInjectNames(inst)...)
+	}
+
+	if len(allNames) == 0 {
+		fmt.Fprintf(os.Stderr, "no @inject attributes found\n")
+		return nil
+	}
+
+	funcs, err := parseInjectNames(allNames)
+	if err != nil {
+		return err
+	}
+
+	// Create a temporary directory for module resolution.
+	tmpDir, err := os.MkdirTemp("", "cue-user-funcs-tidy-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Write go.mod, the template main.go (so go mod tidy captures
+	// cuelang.org/go deps), and a stub file with blank imports for
+	// the inject function packages.
+	if err := writeGoMod(tmpDir, funcs); err != nil {
+		return err
+	}
+	tmplMain, err := templateFS.ReadFile("_template/main.go")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "main.go"), tmplMain, 0o666); err != nil {
+		return err
+	}
+	if err := writeStubFile(tmpDir, funcs); err != nil {
+		return err
+	}
+
+	// Seed go.sum from inject.sum if it exists.
+	injectSumPath := filepath.Join(modRoot, "cue.mod", "inject.sum")
+	if data, err := os.ReadFile(injectSumPath); err == nil {
+		if err := os.WriteFile(filepath.Join(tmpDir, "go.sum"), data, 0o666); err != nil {
+			return err
+		}
+	}
+
+	// Run go mod tidy to resolve all dependencies.
+	if err := goCmd(tmpDir, "mod", "tidy"); err != nil {
+		return fmt.Errorf("go mod tidy: %w", err)
+	}
+
+	// Copy go.mod → cue.mod/inject.mod.
+	cueModDir := filepath.Join(modRoot, "cue.mod")
+	goModData, err := os.ReadFile(filepath.Join(tmpDir, "go.mod"))
+	if err != nil {
+		return fmt.Errorf("reading generated go.mod: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(cueModDir, "inject.mod"), goModData, 0o666); err != nil {
+		return fmt.Errorf("writing inject.mod: %w", err)
+	}
+
+	// Copy go.sum → cue.mod/inject.sum.
+	goSumData, err := os.ReadFile(filepath.Join(tmpDir, "go.sum"))
+	if err != nil {
+		return fmt.Errorf("reading generated go.sum: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(cueModDir, "inject.sum"), goSumData, 0o666); err != nil {
+		return fmt.Errorf("writing inject.sum: %w", err)
+	}
+
+	return nil
 }
 
 // openCache opens the artifact cache in ~/.cache/cue-user-funcs.

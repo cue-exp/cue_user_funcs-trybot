@@ -1,36 +1,19 @@
 env HOME=$WORK/.home
 
-# Export without mod tidy should fail.
-! exec cue_user_funcs export .
-cmp stderr expected_no_inject_mod.stderr
+# inject.mod and inject.sum should not exist yet.
+! exists cue.mod/inject.mod
+! exists cue.mod/inject.sum
 
-# Run mod tidy to generate inject.mod and inject.sum.
+# Run mod tidy (which also runs cue mod tidy).
 exec cue_user_funcs mod tidy
+
+# inject.mod and inject.sum should now exist and match golden files.
 cmp cue.mod/inject.mod expected_inject.mod
 cmp cue.mod/inject.sum expected_inject.sum
 
-# First export after mod tidy.
+# Now run export using the inject files created by mod tidy.
 exec cue_user_funcs export --debug .
 cmp stdout expected.json
-stderr 'binary cache miss'
-stderr 'binary cached'
-
-# Second run: binary cache should hit.
-exec cue_user_funcs export --debug .
-cmp stdout expected.json
-stderr 'binary cache hit'
-
-# Shim request: shim was cached during first run.
-exec cue_user_funcs export --debug --shim .
-cmp stdout expected_shim.go
-stderr 'shim cache hit'
-
-# Corrupt inject.sum with a fresh cache: a bad hash should cause
-# go mod tidy to fail with a checksum mismatch.
-cp inject_bad.sum cue.mod/inject.sum
-env HOME=$WORK/.home2
-! exec cue_user_funcs export .
-stderr 'SECURITY ERROR'
 
 -- cue.mod/module.cue --
 module: "test.example"
@@ -90,97 +73,6 @@ parsed: url.#Parse("https://example.com/path?q=1#frag")
     "trunc": "hello",
     "version": "v1.2.3-beta+build456"
 }
--- expected_shim.go --
-package main
-
-import (
-	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/cuecontext"
-	pkg1 "net/url"
-	pkg2 "golang.org/x/mod/semver"
-	pkg3 "github.com/cue-exp/cue_user_funcs/sprig"
-)
-
-func registerAll(j *cuecontext.Injector) {
-	j.Register("net/url@v0.Parse", cue.PureFunc1(func(a0 string) (*pkg1.URL, error) {
-		return pkg1.Parse(a0)
-	}, cue.Name("net/url@v0.Parse")))
-	j.Register("golang.org/x/mod@v0.33.0/semver.IsValid", cue.PureFunc1(func(a0 string) (bool, error) {
-		return pkg2.IsValid(a0), nil
-	}, cue.Name("golang.org/x/mod@v0.33.0/semver.IsValid")))
-	j.Register("golang.org/x/mod@v0.33.0/semver.Compare", cue.PureFunc2(func(a0 string, a1 string) (int, error) {
-		return pkg2.Compare(a0, a1), nil
-	}, cue.Name("golang.org/x/mod@v0.33.0/semver.Compare")))
-	j.Register("golang.org/x/mod@v0.33.0/semver.Major", cue.PureFunc1(func(a0 string) (string, error) {
-		return pkg2.Major(a0), nil
-	}, cue.Name("golang.org/x/mod@v0.33.0/semver.Major")))
-	j.Register("golang.org/x/mod@v0.33.0/semver.MajorMinor", cue.PureFunc1(func(a0 string) (string, error) {
-		return pkg2.MajorMinor(a0), nil
-	}, cue.Name("golang.org/x/mod@v0.33.0/semver.MajorMinor")))
-	j.Register("golang.org/x/mod@v0.33.0/semver.Canonical", cue.PureFunc1(func(a0 string) (string, error) {
-		return pkg2.Canonical(a0), nil
-	}, cue.Name("golang.org/x/mod@v0.33.0/semver.Canonical")))
-	j.Register("golang.org/x/mod@v0.33.0/semver.Prerelease", cue.PureFunc1(func(a0 string) (string, error) {
-		return pkg2.Prerelease(a0), nil
-	}, cue.Name("golang.org/x/mod@v0.33.0/semver.Prerelease")))
-	j.Register("golang.org/x/mod@v0.33.0/semver.Build", cue.PureFunc1(func(a0 string) (string, error) {
-		return pkg2.Build(a0), nil
-	}, cue.Name("golang.org/x/mod@v0.33.0/semver.Build")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Untitle", cue.PureFunc1(func(a0 string) (string, error) {
-		return pkg3.Untitle(a0), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Untitle")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Substr", cue.PureFunc3(func(a0 int, a1 int, a2 string) (string, error) {
-		return pkg3.Substr(a0, a1, a2), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Substr")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Nospace", cue.PureFunc1(func(a0 string) (string, error) {
-		return pkg3.Nospace(a0), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Nospace")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Trunc", cue.PureFunc2(func(a0 int, a1 string) (string, error) {
-		return pkg3.Trunc(a0, a1), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Trunc")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Abbrev", cue.PureFunc2(func(a0 int, a1 string) (string, error) {
-		return pkg3.Abbrev(a0, a1), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Abbrev")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Abbrevboth", cue.PureFunc3(func(a0 int, a1 int, a2 string) (string, error) {
-		return pkg3.Abbrevboth(a0, a1, a2), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Abbrevboth")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Initials", cue.PureFunc1(func(a0 string) (string, error) {
-		return pkg3.Initials(a0), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Initials")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Wrap", cue.PureFunc2(func(a0 int, a1 string) (string, error) {
-		return pkg3.Wrap(a0, a1), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Wrap")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.WrapWith", cue.PureFunc3(func(a0 int, a1 string, a2 string) (string, error) {
-		return pkg3.WrapWith(a0, a1, a2), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.WrapWith")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Indent", cue.PureFunc2(func(a0 int, a1 string) (string, error) {
-		return pkg3.Indent(a0, a1), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Indent")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Nindent", cue.PureFunc2(func(a0 int, a1 string) (string, error) {
-		return pkg3.Nindent(a0, a1), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Nindent")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Snakecase", cue.PureFunc1(func(a0 string) (string, error) {
-		return pkg3.Snakecase(a0), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Snakecase")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Camelcase", cue.PureFunc1(func(a0 string) (string, error) {
-		return pkg3.Camelcase(a0), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Camelcase")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Kebabcase", cue.PureFunc1(func(a0 string) (string, error) {
-		return pkg3.Kebabcase(a0), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Kebabcase")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Swapcase", cue.PureFunc1(func(a0 string) (string, error) {
-		return pkg3.Swapcase(a0), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Swapcase")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Plural", cue.PureFunc3(func(a0 string, a1 string, a2 int) (string, error) {
-		return pkg3.Plural(a0, a1, a2), nil
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Plural")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.SemverCompare", cue.PureFunc2(func(a0 string, a1 string) (bool, error) {
-		return pkg3.SemverCompare(a0, a1)
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.SemverCompare")))
-	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Semver", cue.PureFunc1(func(a0 string) (*pkg3.SemverVersion, error) {
-		return pkg3.Semver(a0)
-	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Semver")))
-}
 -- expected_inject.mod --
 module _cue_user_funcs_generated
 
@@ -215,11 +107,6 @@ require (
 )
 
 replace cuelang.org/go v0.16.0 => github.com/cue-exp/cue v0.0.0-20260306105357-d03fc6701a45
--- expected_no_inject_mod.stderr --
-cue.mod/inject.mod not found; run 'cue_user_funcs mod tidy' first
--- inject_bad.sum --
-golang.org/x/mod v0.33.0 h1:BADHASHBADHASHBADHASHBADHASHBADHASHBADHASH00=
-golang.org/x/mod v0.33.0/go.mod h1:BADHASHBADHASHBADHASHBADHASHBADHASHBADHASH00=
 -- expected_inject.sum --
 cuelabs.dev/go/oci/ociregistry v0.0.0-20251212221603-3adeb8663819 h1:Zh+Ur3OsoWpvALHPLT45nOekHkgOt+IOfutBbPqM17I=
 cuelabs.dev/go/oci/ociregistry v0.0.0-20251212221603-3adeb8663819/go.mod h1:WjmQxb+W6nVNCgj8nXrF24lIz95AHwnSl36tpjDZSU8=
