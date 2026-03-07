@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"embed"
+	"flag"
 	"fmt"
 	goast "go/ast"
 	"os"
@@ -46,28 +47,21 @@ func debugf(format string, args ...any) {
 }
 
 func run() error {
-	if len(os.Args) < 3 || os.Args[1] != "export" {
-		return fmt.Errorf("usage: %s export [--shim] [--debug] <directory>", os.Args[0])
+	if len(os.Args) < 2 || os.Args[1] != "export" {
+		return fmt.Errorf("usage: %s export [-shim] [-debug] <directory>", os.Args[0])
 	}
 
-	// Parse flags before the directory argument.
-	args := os.Args[2:]
-	showShim := false
-	for len(args) > 0 && strings.HasPrefix(args[0], "--") {
-		switch args[0] {
-		case "--shim":
-			showShim = true
-		case "--debug":
-			debug = true
-		default:
-			return fmt.Errorf("unknown flag: %s", args[0])
-		}
-		args = args[1:]
+	exportFlags := flag.NewFlagSet("export", flag.ContinueOnError)
+	showShim := exportFlags.Bool("shim", false, "print the generated Go shim and exit")
+	debugFlag := exportFlags.Bool("debug", false, "print cache diagnostics to stderr")
+	if err := exportFlags.Parse(os.Args[2:]); err != nil {
+		return err
 	}
-	if len(args) == 0 {
-		return fmt.Errorf("usage: %s export [--shim] [--debug] <directory>", os.Args[0])
+	debug = *debugFlag
+	if exportFlags.NArg() == 0 {
+		return fmt.Errorf("usage: %s export [-shim] [-debug] <directory>", os.Args[0])
 	}
-	dir := args[0]
+	dir := exportFlags.Arg(0)
 
 	// Make dir absolute so the generated binary can find it.
 	absDir, err := filepath.Abs(dir)
@@ -107,7 +101,7 @@ func run() error {
 	binID := binaryActionID(shimID)
 
 	// For --shim, try the shim cache first.
-	if showShim {
+	if *showShim {
 		if shimBytes, _, err := c.GetBytes(shimID); err == nil {
 			debugf("shim cache hit")
 			_, err = os.Stdout.Write(shimBytes)
