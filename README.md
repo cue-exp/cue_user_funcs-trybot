@@ -129,7 +129,7 @@ A two-level content-addressed cache (using
 ## CUE packages
 
 This repository is both a Go module and a CUE module
-(`github.com/cue-exp/cue_user_funcs`). It provides two reusable CUE packages
+(`github.com/cue-exp/cue_user_funcs`). It provides reusable CUE packages
 that consumers can import to get pre-wired `@inject` bindings without having to
 write `@extern(inject)` / `@inject` attributes themselves.
 
@@ -142,13 +142,18 @@ package example
 import (
     "github.com/cue-exp/cue_user_funcs/semver"
     "github.com/cue-exp/cue_user_funcs/sprig"
+    "github.com/cue-exp/cue_user_funcs/net/url"
 )
 
-valid: semver.#IsValid("v1.2.3")
-snake: sprig.#Snakecase("HelloWorld")
+valid:  semver.#IsValid("v1.2.3")
+snake:  sprig.#Snakecase("HelloWorld")
+parsed: url.#Parse("https://example.com/path?q=1")
 ```
 
-### `semver` — pure CUE package
+There are three kinds of CUE packages in this module, distinguished by where
+the backing Go code lives:
+
+### `semver` — pure CUE package (third-party Go)
 
 The `semver` package is a single CUE file (`semver/semver.cue`) that binds
 directly to functions in [`golang.org/x/mod/semver`](https://pkg.go.dev/golang.org/x/mod/semver),
@@ -162,6 +167,24 @@ version:
 
 Functions: `#IsValid`, `#Compare`, `#Canonical`, `#Major`, `#MajorMinor`,
 `#Prerelease`, `#Build`.
+
+### `net/url` — pure CUE package (stdlib)
+
+The `net/url` package is a single CUE file (`net/url/url.cue`) that binds
+directly to Go's standard library [`net/url.Parse`](https://pkg.go.dev/net/url#Parse).
+Like `semver`, no Go code is needed — but unlike third-party modules, stdlib
+packages don't require a `go mod edit -require` directive. The inject name uses
+a placeholder version:
+
+```cue
+#Parse: _ @inject(name="net/url@v0.Parse")
+```
+
+Standard library packages are detected by the absence of a dot in the first
+path element (e.g. `net/url` vs `golang.org/x/mod`), and their require
+directives are skipped automatically.
+
+Functions: `#Parse`.
 
 ### `sprig` — Go+CUE package
 
@@ -179,14 +202,19 @@ CUE file contains a pinned pseudo-version of this module itself:
 #Snakecase: _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Snakecase")
 ```
 
-This creates a two-step publish ordering:
+This creates a two-step publish ordering that applies to any Go+CUE package in
+this module (currently only `sprig`):
 
-1. **Publish the Go module first** — push a commit containing the Go code in
-   `sprig/sprig.go` so that a pseudo-version (or tag) becomes available on the
-   Go module proxy.
-2. **Update and publish the CUE module** — update `sprig/sprig.cue` to
-   reference the newly published Go version in the `@inject` names, then tag
-   and publish the CUE module.
+1. **Publish the Go code first** — push a commit containing the Go source so
+   that a pseudo-version (or tag) becomes available on the Go module proxy.
+2. **Update and publish the CUE module** — update the CUE binding file to
+   reference the newly published Go version in the `@inject` names, then
+   publish the CUE module.
+
+This ordering is necessary because the `@inject` name embeds a specific Go
+module version. The Go code must be fetchable at that version before CUE
+consumers can resolve the bindings. Consumers of this CUE module then depend on
+the published CUE module version (e.g. `v0.0.3`) in their `cue.mod/module.cue`.
 
 Functions: `#Untitle`, `#Substr`, `#Nospace`, `#Trunc`, `#Abbrev`,
 `#Abbrevboth`, `#Initials`, `#Wrap`, `#WrapWith`, `#Indent`, `#Nindent`,
@@ -202,8 +230,9 @@ module@version/subpath.FuncName
 ```
 
 For example:
-- `golang.org/x/mod@v0.33.0/semver.IsValid`
-- `github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Snakecase`
+- `golang.org/x/mod@v0.33.0/semver.IsValid` — third-party module
+- `github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Snakecase` — this module's own Go code
+- `net/url@v0.Parse` — Go standard library (version is a placeholder)
 
 ## CUE package setup
 
