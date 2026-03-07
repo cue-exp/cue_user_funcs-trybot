@@ -1,4 +1,7 @@
 env HOME=$WORK/.home
+exec cue_user_funcs export --shim .
+cmp stdout expected_shim.go
+
 exec cue_user_funcs export .
 cmp stdout expected.json
 
@@ -30,6 +33,38 @@ versions: {
 	a: "v2.0.0"
 	b: "v1.9.0"
 	aIsNewer: #semverCompare(a, b) > 0
+}
+-- expected_shim.go --
+package main
+
+import (
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
+	pkg1 "golang.org/x/mod/semver"
+)
+
+func registerAll(j *cuecontext.Injector) {
+	j.Register("golang.org/x/mod@v0.33.0/semver.IsValid", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.IsValid(a0.(string)), nil
+	}, cue.Name("golang.org/x/mod@v0.33.0/semver.IsValid")))
+	j.Register("golang.org/x/mod@v0.33.0/semver.Compare", cue.PureFunc2(func(a0, a1 any) (any, error) {
+		return pkg1.Compare(a0.(string), a1.(string)), nil
+	}, cue.Name("golang.org/x/mod@v0.33.0/semver.Compare")))
+	j.Register("golang.org/x/mod@v0.33.0/semver.Major", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.Major(a0.(string)), nil
+	}, cue.Name("golang.org/x/mod@v0.33.0/semver.Major")))
+	j.Register("golang.org/x/mod@v0.33.0/semver.MajorMinor", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.MajorMinor(a0.(string)), nil
+	}, cue.Name("golang.org/x/mod@v0.33.0/semver.MajorMinor")))
+	j.Register("golang.org/x/mod@v0.33.0/semver.Canonical", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.Canonical(a0.(string)), nil
+	}, cue.Name("golang.org/x/mod@v0.33.0/semver.Canonical")))
+	j.Register("golang.org/x/mod@v0.33.0/semver.Prerelease", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.Prerelease(a0.(string)), nil
+	}, cue.Name("golang.org/x/mod@v0.33.0/semver.Prerelease")))
+	j.Register("golang.org/x/mod@v0.33.0/semver.Build", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.Build(a0.(string)), nil
+	}, cue.Name("golang.org/x/mod@v0.33.0/semver.Build")))
 }
 -- expected.json --
 {

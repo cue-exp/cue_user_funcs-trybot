@@ -1,4 +1,7 @@
 env HOME=$WORK/.home
+exec cue_user_funcs export --shim .
+cmp stdout expected_shim.go
+
 exec cue_user_funcs export .
 cmp stdout expected.json
 
@@ -87,6 +90,71 @@ t25: #SemverCompare("^1.2.0", "2.0.0")
 // Semver
 t26: #Semver("1.2.3")
 t27: #Semver("1.2.3-beta.1+c0ff33")
+-- expected_shim.go --
+package main
+
+import (
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
+	pkg1 "github.com/cue-exp/cue_user_funcs/sprig"
+)
+
+func registerAll(j *cuecontext.Injector) {
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Untitle", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.Untitle(a0.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Untitle")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Substr", cue.PureFunc3(func(a0, a1, a2 any) (any, error) {
+		return pkg1.Substr(int(a0.(int64)), int(a1.(int64)), a2.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Substr")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Nospace", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.Nospace(a0.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Nospace")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Trunc", cue.PureFunc2(func(a0, a1 any) (any, error) {
+		return pkg1.Trunc(int(a0.(int64)), a1.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Trunc")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Abbrev", cue.PureFunc2(func(a0, a1 any) (any, error) {
+		return pkg1.Abbrev(int(a0.(int64)), a1.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Abbrev")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Abbrevboth", cue.PureFunc3(func(a0, a1, a2 any) (any, error) {
+		return pkg1.Abbrevboth(int(a0.(int64)), int(a1.(int64)), a2.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Abbrevboth")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Initials", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.Initials(a0.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Initials")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Wrap", cue.PureFunc2(func(a0, a1 any) (any, error) {
+		return pkg1.Wrap(int(a0.(int64)), a1.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Wrap")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.WrapWith", cue.PureFunc3(func(a0, a1, a2 any) (any, error) {
+		return pkg1.WrapWith(int(a0.(int64)), a1.(string), a2.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.WrapWith")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Indent", cue.PureFunc2(func(a0, a1 any) (any, error) {
+		return pkg1.Indent(int(a0.(int64)), a1.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Indent")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Nindent", cue.PureFunc2(func(a0, a1 any) (any, error) {
+		return pkg1.Nindent(int(a0.(int64)), a1.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Nindent")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Snakecase", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.Snakecase(a0.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Snakecase")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Camelcase", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.Camelcase(a0.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Camelcase")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Kebabcase", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.Kebabcase(a0.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Kebabcase")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Swapcase", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.Swapcase(a0.(string)), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Swapcase")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Plural", cue.PureFunc3(func(a0, a1, a2 any) (any, error) {
+		return pkg1.Plural(a0.(string), a1.(string), int(a2.(int64))), nil
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Plural")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.SemverCompare", cue.PureFunc2(func(a0, a1 any) (any, error) {
+		return pkg1.SemverCompare(a0.(string), a1.(string))
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.SemverCompare")))
+	j.Register("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Semver", cue.PureFunc1(func(a0 any) (any, error) {
+		return pkg1.Semver(a0.(string))
+	}, cue.Name("github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Semver")))
+}
 -- expected.json --
 {
     "t10": "hello world",

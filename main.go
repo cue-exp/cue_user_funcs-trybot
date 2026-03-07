@@ -35,9 +35,20 @@ func main1() int {
 
 func run() error {
 	if len(os.Args) < 3 || os.Args[1] != "export" {
-		return fmt.Errorf("usage: %s export <directory>", os.Args[0])
+		return fmt.Errorf("usage: %s export [--shim] <directory>", os.Args[0])
 	}
-	dir := os.Args[2]
+
+	// Parse flags: optional --shim before the directory argument.
+	args := os.Args[2:]
+	showShim := false
+	if len(args) > 0 && args[0] == "--shim" {
+		showShim = true
+		args = args[1:]
+	}
+	if len(args) == 0 {
+		return fmt.Errorf("usage: %s export [--shim] <directory>", os.Args[0])
+	}
+	dir := args[0]
 
 	// Make dir absolute so the generated binary can find it.
 	absDir, err := filepath.Abs(dir)
@@ -45,27 +56,15 @@ func run() error {
 		return err
 	}
 
-	// Load the CUE package to discover @inject attributes.
-	cfg := &load.Config{Dir: absDir}
-	instances := load.Instances([]string{"."}, cfg)
-	if len(instances) == 0 {
-		return fmt.Errorf("no instances found in %s", dir)
-	}
-	inst := instances[0]
-	if inst.Err != nil {
-		return inst.Err
-	}
-
-	// Walk all instances (including transitive deps) to find @inject names.
-	injectNames := collectInjectNames(inst)
-	if len(injectNames) == 0 {
-		return fmt.Errorf("no @inject attributes found")
-	}
-
-	// Parse inject names into module requirements and function references.
-	funcs, err := parseInjectNames(injectNames)
+	// Resolve function signatures from the CUE package's @inject attributes.
+	funcs, regData, cleanup, err := resolveRegisterData(absDir)
 	if err != nil {
 		return err
+	}
+	defer cleanup()
+
+	if showShim {
+		return registerTmpl.Execute(os.Stdout, regData)
 	}
 
 	// Create a temporary directory for the generated module.
@@ -89,30 +88,14 @@ func run() error {
 		return err
 	}
 
-	// Write a stub file with blank imports so go mod tidy downloads
-	// the function packages.
-	if err := writeStubFile(tmpDir, funcs); err != nil {
+	// Generate register.go with typed function wrappers.
+	if err := writeRegisterFile(tmpDir, regData); err != nil {
 		return err
 	}
 
-	// Run go mod tidy to download modules.
+	// Run go mod tidy.
 	if err := goCmd(tmpDir, "mod", "tidy"); err != nil {
 		return fmt.Errorf("go mod tidy: %w", err)
-	}
-
-	// Resolve function signatures from the downloaded Go source.
-	// TODO: cache the generated program on a content-addressed hash of inputs.
-	sigs, err := resolveFuncSigs(tmpDir, funcs)
-	if err != nil {
-		return err
-	}
-
-	// Replace stub with the generated register.go containing typed wrappers.
-	if err := os.Remove(filepath.Join(tmpDir, "stub.go")); err != nil {
-		return err
-	}
-	if err := writeRegisterFile(tmpDir, funcs, sigs); err != nil {
-		return err
 	}
 
 	// Build the generated module.
@@ -122,8 +105,77 @@ func run() error {
 	}
 
 	// Exec the built binary, replacing the current process.
-	args := []string{binPath, "export", absDir}
-	return syscall.Exec(binPath, args, os.Environ())
+	execArgs := []string{binPath, "export", absDir}
+	return syscall.Exec(binPath, execArgs, os.Environ())
+}
+
+// resolveRegisterData loads the CUE package at absDir, discovers @inject
+// attributes, downloads the referenced Go modules, parses function signatures,
+// and returns the data needed to generate register.go. The returned cleanup
+// function removes the temporary directory used for module resolution.
+func resolveRegisterData(absDir string) ([]funcRef, *registerData, func(), error) {
+	noop := func() {}
+
+	// Load the CUE package to discover @inject attributes.
+	cfg := &load.Config{Dir: absDir}
+	instances := load.Instances([]string{"."}, cfg)
+	if len(instances) == 0 {
+		return nil, nil, noop, fmt.Errorf("no instances found in %s", absDir)
+	}
+	inst := instances[0]
+	if inst.Err != nil {
+		return nil, nil, noop, inst.Err
+	}
+
+	// Walk all instances (including transitive deps) to find @inject names.
+	injectNames := collectInjectNames(inst)
+	if len(injectNames) == 0 {
+		return nil, nil, noop, fmt.Errorf("no @inject attributes found")
+	}
+
+	// Parse inject names into module requirements and function references.
+	funcs, err := parseInjectNames(injectNames)
+	if err != nil {
+		return nil, nil, noop, err
+	}
+
+	// Create a temporary directory for module resolution.
+	tmpDir, err := os.MkdirTemp("", "cue-user-funcs-resolve-*")
+	if err != nil {
+		return nil, nil, noop, err
+	}
+	cleanup := func() { os.RemoveAll(tmpDir) }
+
+	// Write go.mod and a stub file with blank imports so go mod tidy
+	// downloads the function packages.
+	if err := writeGoMod(tmpDir, funcs); err != nil {
+		cleanup()
+		return nil, nil, noop, err
+	}
+	if err := writeStubFile(tmpDir, funcs); err != nil {
+		cleanup()
+		return nil, nil, noop, err
+	}
+	if err := goCmd(tmpDir, "mod", "tidy"); err != nil {
+		cleanup()
+		return nil, nil, noop, fmt.Errorf("go mod tidy: %w", err)
+	}
+
+	// Resolve function signatures from the downloaded Go source.
+	// TODO: cache the generated program on a content-addressed hash of inputs.
+	sigs, err := resolveFuncSigs(tmpDir, funcs)
+	if err != nil {
+		cleanup()
+		return nil, nil, noop, err
+	}
+
+	regData, err := buildRegisterData(funcs, sigs)
+	if err != nil {
+		cleanup()
+		return nil, nil, noop, err
+	}
+
+	return funcs, regData, cleanup, nil
 }
 
 // collectInjectNames walks the instance and its transitive imports,
@@ -466,7 +518,7 @@ type registerFuncEntry struct {
 	ReturnsError bool
 }
 
-func writeRegisterFile(tmpDir string, funcs []funcRef, sigs map[string]*funcSig) error {
+func buildRegisterData(funcs []funcRef, sigs map[string]*funcSig) (*registerData, error) {
 	// Assign unique import aliases.
 	importAliases := map[string]string{} // importPath -> alias
 	aliasCounter := 0
@@ -509,7 +561,7 @@ func writeRegisterFile(tmpDir string, funcs []funcRef, sigs map[string]*funcSig)
 		for i, paramType := range sig.Params {
 			expr, err := convExpr(fmt.Sprintf("a%d", i), paramType)
 			if err != nil {
-				return fmt.Errorf("function %s param %d: %w", f.InjectName, i, err)
+				return nil, fmt.Errorf("function %s param %d: %w", f.InjectName, i, err)
 			}
 			argExprs[i] = expr
 		}
@@ -524,15 +576,19 @@ func writeRegisterFile(tmpDir string, funcs []funcRef, sigs map[string]*funcSig)
 		})
 	}
 
+	return &registerData{
+		Imports: imports,
+		Funcs:   entries,
+	}, nil
+}
+
+func writeRegisterFile(tmpDir string, data *registerData) error {
 	out, err := os.Create(filepath.Join(tmpDir, "register.go"))
 	if err != nil {
 		return err
 	}
 	defer out.Close()
-	return registerTmpl.Execute(out, registerData{
-		Imports: imports,
-		Funcs:   entries,
-	})
+	return registerTmpl.Execute(out, data)
 }
 
 func goCmd(dir string, args ...string) error {
