@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
 	goast "go/ast"
@@ -8,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"slices"
 	"strings"
 	"syscall"
 	"text/template"
@@ -15,6 +18,7 @@ import (
 	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/build"
 	"cuelang.org/go/cue/load"
+	"github.com/rogpeppe/go-internal/cache"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -33,20 +37,35 @@ func main1() int {
 	return 0
 }
 
+var debug bool
+
+func debugf(format string, args ...any) {
+	if debug {
+		fmt.Fprintf(os.Stderr, "debug: "+format+"\n", args...)
+	}
+}
+
 func run() error {
 	if len(os.Args) < 3 || os.Args[1] != "export" {
-		return fmt.Errorf("usage: %s export [--shim] <directory>", os.Args[0])
+		return fmt.Errorf("usage: %s export [--shim] [--debug] <directory>", os.Args[0])
 	}
 
-	// Parse flags: optional --shim before the directory argument.
+	// Parse flags before the directory argument.
 	args := os.Args[2:]
 	showShim := false
-	if len(args) > 0 && args[0] == "--shim" {
-		showShim = true
+	for len(args) > 0 && strings.HasPrefix(args[0], "--") {
+		switch args[0] {
+		case "--shim":
+			showShim = true
+		case "--debug":
+			debug = true
+		default:
+			return fmt.Errorf("unknown flag: %s", args[0])
+		}
 		args = args[1:]
 	}
 	if len(args) == 0 {
-		return fmt.Errorf("usage: %s export [--shim] <directory>", os.Args[0])
+		return fmt.Errorf("usage: %s export [--shim] [--debug] <directory>", os.Args[0])
 	}
 	dir := args[0]
 
@@ -56,18 +75,88 @@ func run() error {
 		return err
 	}
 
-	// Resolve function signatures from the CUE package's @inject attributes.
-	funcs, regData, cleanup, err := resolveRegisterData(absDir)
+	// Load the CUE package to discover @inject attributes.
+	cfg := &load.Config{Dir: absDir}
+	instances := load.Instances([]string{"."}, cfg)
+	if len(instances) == 0 {
+		return fmt.Errorf("no instances found in %s", dir)
+	}
+	inst := instances[0]
+	if inst.Err != nil {
+		return inst.Err
+	}
+
+	injectNames := collectInjectNames(inst)
+	if len(injectNames) == 0 {
+		return fmt.Errorf("no @inject attributes found")
+	}
+
+	funcs, err := parseInjectNames(injectNames)
 	if err != nil {
 		return err
 	}
-	defer cleanup()
 
-	if showShim {
-		return registerTmpl.Execute(os.Stdout, regData)
+	// Open the artifact cache.
+	c, err := openCache()
+	if err != nil {
+		return err
 	}
 
-	// Create a temporary directory for the generated module.
+	// Compute cache keys from the sorted inject names.
+	shimID := shimActionID(injectNames)
+	binID := binaryActionID(shimID)
+
+	// For --shim, try the shim cache first.
+	if showShim {
+		if shimBytes, _, err := c.GetBytes(shimID); err == nil {
+			debugf("shim cache hit")
+			_, err = os.Stdout.Write(shimBytes)
+			return err
+		}
+		debugf("shim cache miss")
+		regData, err := resolveRegisterData(funcs)
+		if err != nil {
+			return err
+		}
+		var buf bytes.Buffer
+		if err := registerTmpl.Execute(&buf, regData); err != nil {
+			return err
+		}
+		c.PutBytes(shimID, buf.Bytes())
+		_, err = os.Stdout.Write(buf.Bytes())
+		return err
+	}
+
+	// Try the binary cache.
+	if binFile, _, err := c.GetFile(binID); err == nil {
+		// The cache stores files without execute permission; fix before exec.
+		if err := os.Chmod(binFile, 0o555); err == nil {
+			debugf("binary cache hit")
+			execArgs := []string{binFile, "export", absDir}
+			return syscall.Exec(binFile, execArgs, os.Environ())
+		}
+	}
+	debugf("binary cache miss")
+
+	// Cache miss: resolve the shim (possibly from cache).
+	shimBytes, _, shimErr := c.GetBytes(shimID)
+	if shimErr != nil {
+		debugf("shim cache miss")
+		regData, err := resolveRegisterData(funcs)
+		if err != nil {
+			return err
+		}
+		var buf bytes.Buffer
+		if err := registerTmpl.Execute(&buf, regData); err != nil {
+			return err
+		}
+		shimBytes = buf.Bytes()
+		c.PutBytes(shimID, shimBytes)
+	} else {
+		debugf("shim cache hit")
+	}
+
+	// Build the binary in a temporary directory.
 	tmpDir, err := os.MkdirTemp("", "cue-user-funcs-*")
 	if err != nil {
 		return err
@@ -88,8 +177,8 @@ func run() error {
 		return err
 	}
 
-	// Generate register.go with typed function wrappers.
-	if err := writeRegisterFile(tmpDir, regData); err != nil {
+	// Write the generated register.go.
+	if err := os.WriteFile(filepath.Join(tmpDir, "register.go"), shimBytes, 0o666); err != nil {
 		return err
 	}
 
@@ -104,78 +193,89 @@ func run() error {
 		return fmt.Errorf("go build: %w", err)
 	}
 
+	// Cache the built binary.
+	if f, err := os.Open(binPath); err == nil {
+		c.Put(binID, f)
+		f.Close()
+		debugf("binary cached")
+	}
+
 	// Exec the built binary, replacing the current process.
 	execArgs := []string{binPath, "export", absDir}
 	return syscall.Exec(binPath, execArgs, os.Environ())
 }
 
-// resolveRegisterData loads the CUE package at absDir, discovers @inject
-// attributes, downloads the referenced Go modules, parses function signatures,
-// and returns the data needed to generate register.go. The returned cleanup
-// function removes the temporary directory used for module resolution.
-func resolveRegisterData(absDir string) ([]funcRef, *registerData, func(), error) {
-	noop := func() {}
-
-	// Load the CUE package to discover @inject attributes.
-	cfg := &load.Config{Dir: absDir}
-	instances := load.Instances([]string{"."}, cfg)
-	if len(instances) == 0 {
-		return nil, nil, noop, fmt.Errorf("no instances found in %s", absDir)
-	}
-	inst := instances[0]
-	if inst.Err != nil {
-		return nil, nil, noop, inst.Err
-	}
-
-	// Walk all instances (including transitive deps) to find @inject names.
-	injectNames := collectInjectNames(inst)
-	if len(injectNames) == 0 {
-		return nil, nil, noop, fmt.Errorf("no @inject attributes found")
-	}
-
-	// Parse inject names into module requirements and function references.
-	funcs, err := parseInjectNames(injectNames)
+// openCache opens the artifact cache in ~/.cache/cue-user-funcs.
+func openCache() (*cache.Cache, error) {
+	dir, err := os.UserCacheDir()
 	if err != nil {
-		return nil, nil, noop, err
+		return nil, fmt.Errorf("cache dir: %w", err)
 	}
+	cacheDir := filepath.Join(dir, "cue-user-funcs")
+	if err := os.MkdirAll(cacheDir, 0o777); err != nil {
+		return nil, err
+	}
+	return cache.Open(cacheDir)
+}
 
+// shimActionID computes a cache key for the generated register.go shim.
+// The shim is fully determined by the sorted inject names.
+func shimActionID(injectNames []string) cache.ActionID {
+	sorted := slices.Clone(injectNames)
+	slices.Sort(sorted)
+	h := cache.NewHash("shim")
+	for _, name := range sorted {
+		h.Write([]byte(name))
+		h.Write([]byte{0})
+	}
+	return h.Sum()
+}
+
+// binaryActionID computes a cache key for the built binary.
+// It mixes the shim key with the Go version, platform, and template content.
+func binaryActionID(shimID cache.ActionID) cache.ActionID {
+	tmplMain, _ := templateFS.ReadFile("_template/main.go")
+	h := cache.NewHash("binary")
+	h.Write(shimID[:])
+	h.Write([]byte(runtime.Version()))
+	h.Write([]byte{0})
+	h.Write([]byte(runtime.GOOS))
+	h.Write([]byte{0})
+	h.Write([]byte(runtime.GOARCH))
+	h.Write([]byte{0})
+	h.Write(tmplMain)
+	return h.Sum()
+}
+
+// resolveRegisterData downloads the referenced Go modules, parses function
+// signatures, and returns the data needed to generate register.go.
+func resolveRegisterData(funcs []funcRef) (*registerData, error) {
 	// Create a temporary directory for module resolution.
 	tmpDir, err := os.MkdirTemp("", "cue-user-funcs-resolve-*")
 	if err != nil {
-		return nil, nil, noop, err
+		return nil, err
 	}
-	cleanup := func() { os.RemoveAll(tmpDir) }
+	defer os.RemoveAll(tmpDir)
 
 	// Write go.mod and a stub file with blank imports so go mod tidy
 	// downloads the function packages.
 	if err := writeGoMod(tmpDir, funcs); err != nil {
-		cleanup()
-		return nil, nil, noop, err
+		return nil, err
 	}
 	if err := writeStubFile(tmpDir, funcs); err != nil {
-		cleanup()
-		return nil, nil, noop, err
+		return nil, err
 	}
 	if err := goCmd(tmpDir, "mod", "tidy"); err != nil {
-		cleanup()
-		return nil, nil, noop, fmt.Errorf("go mod tidy: %w", err)
+		return nil, fmt.Errorf("go mod tidy: %w", err)
 	}
 
 	// Resolve function signatures from the downloaded Go source.
-	// TODO: cache the generated program on a content-addressed hash of inputs.
 	sigs, err := resolveFuncSigs(tmpDir, funcs)
 	if err != nil {
-		cleanup()
-		return nil, nil, noop, err
+		return nil, err
 	}
 
-	regData, err := buildRegisterData(funcs, sigs)
-	if err != nil {
-		cleanup()
-		return nil, nil, noop, err
-	}
-
-	return funcs, regData, cleanup, nil
+	return buildRegisterData(funcs, sigs)
 }
 
 // collectInjectNames walks the instance and its transitive imports,
@@ -583,15 +683,6 @@ func buildRegisterData(funcs []funcRef, sigs map[string]*funcSig) (*registerData
 		Imports: imports,
 		Funcs:   entries,
 	}, nil
-}
-
-func writeRegisterFile(tmpDir string, data *registerData) error {
-	out, err := os.Create(filepath.Join(tmpDir, "register.go"))
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	return registerTmpl.Execute(out, data)
 }
 
 func goCmd(dir string, args ...string) error {
