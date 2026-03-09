@@ -635,6 +635,7 @@ type funcSig struct {
 	Params       []string // Go type names, e.g. ["string", "int"]
 	ReturnType   string   // first return type name, e.g. "string", "bool", "*SemverVersion"
 	ReturnsError bool     // true if the last return value is error
+	ExtraReturns int      // number of non-error returns beyond the first (discarded in wrapper)
 }
 
 // resolveFuncSigs loads the Go packages for all inject functions using
@@ -721,6 +722,20 @@ func findFuncSig(pkg *packages.Package, funcName string) (*funcSig, error) {
 					return nil, fmt.Errorf("function %s return type: %w", funcName, err)
 				}
 				sig.ReturnType = retType
+				// Count total return values (expanding grouped names).
+				totalReturns := 0
+				for _, r := range results {
+					n := len(r.Names)
+					if n == 0 {
+						n = 1
+					}
+					totalReturns += n
+				}
+				extra := totalReturns - 1 // subtract the first return
+				if sig.ReturnsError {
+					extra-- // subtract the error return
+				}
+				sig.ExtraReturns = extra
 			}
 			return sig, nil
 		}
@@ -780,6 +795,16 @@ import (
 
 func registerAll(j *cuecontext.Injector) {
 {{- range .Funcs}}
+{{- if gt .ExtraReturns 0}}
+	j.Register("{{.InjectName}}", cue.PureFunc{{.Arity}}(func({{.ParamDecl}}) ({{.ReturnType}}, error) {
+		_r0{{range $i := .Blanks}}, _{{end}}{{if .ReturnsError}}, _err{{end}} := {{.CallExpr}}
+{{- if .ReturnsError}}
+		return _r0, _err
+{{- else}}
+		return _r0, nil
+{{- end}}
+	}, cue.Name("{{.InjectName}}")))
+{{- else}}
 	j.Register("{{.InjectName}}", cue.PureFunc{{.Arity}}(func({{.ParamDecl}}) ({{.ReturnType}}, error) {
 {{- if .ReturnsError}}
 		return {{.CallExpr}}
@@ -787,6 +812,7 @@ func registerAll(j *cuecontext.Injector) {
 		return {{.CallExpr}}, nil
 {{- end}}
 	}, cue.Name("{{.InjectName}}")))
+{{- end}}
 {{- end}}
 }
 `))
@@ -808,6 +834,13 @@ type registerFuncEntry struct {
 	ReturnType   string
 	CallExpr     string
 	ReturnsError bool
+	ExtraReturns int
+}
+
+// Blanks returns a slice of length ExtraReturns, used by the template
+// to emit the correct number of blank identifiers.
+func (e registerFuncEntry) Blanks() []struct{} {
+	return make([]struct{}, e.ExtraReturns)
 }
 
 func buildRegisterData(funcs []funcRef, sigs map[string]*funcSig) (*registerData, error) {
@@ -858,6 +891,7 @@ func buildRegisterData(funcs []funcRef, sigs map[string]*funcSig) (*registerData
 			ReturnType:   qualifyType(sig.ReturnType, alias),
 			CallExpr:     callExpr,
 			ReturnsError: sig.ReturnsError,
+			ExtraReturns: sig.ExtraReturns,
 		})
 	}
 

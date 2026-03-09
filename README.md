@@ -206,6 +206,21 @@ directives are skipped automatically.
 
 Functions: `#Parse`.
 
+### `text/template` — Go+CUE package
+
+The `text/template` package contains both Go source
+(`text/template/template.go`) and a CUE binding file
+(`text/template/template.cue`). The Go file implements a `NonZero` function
+that follows the Go standard library's `text/template` documentation for
+`{{if}}` actions: empty values are `false`, `0`, any nil pointer or interface
+value, any array/slice/map/string of length zero, and any zero-value struct.
+
+This differs from `text/template.IsTrue` which treats all structs as true
+regardless of whether they are zero-valued
+([golang/go#28394](https://github.com/golang/go/issues/28394)).
+
+Functions: `#NonZero`.
+
 ### `sprig` — Go+CUE package
 
 The `sprig` package contains both Go source (`sprig/sprig.go`) and a CUE
@@ -222,19 +237,24 @@ CUE file contains a pinned pseudo-version of this module itself:
 #Snakecase: _ @inject(name="github.com/cue-exp/cue_user_funcs@v0.0.0-20260306200449-5ada224ec191/sprig.Snakecase")
 ```
 
-This creates a two-step publish ordering that applies to any Go+CUE package in
-this module (currently only `sprig`):
+This creates a multi-commit publish ordering that applies to any Go+CUE package
+in this module (currently `sprig` and `text/template`):
 
-1. **Publish the Go code first** — push a commit containing the Go source so
-   that a pseudo-version (or tag) becomes available on the Go module proxy.
-2. **Update and publish the CUE module** — update the CUE binding file to
-   reference the newly published Go version in the `@inject` names, then
-   publish the CUE module.
+1. **Commit 1: Go code + CUE binding** — push a commit containing the Go
+   source and the CUE binding file. The `@inject` name in the CUE file
+   references a pseudo-version that does not yet contain the new package, so
+   the test for this package cannot be added yet. All existing tests must pass.
+2. **Commit 2: Update version + add test** — after commit 1 is pushed and
+   available on the Go module proxy, update the `@inject` pseudo-version in
+   the CUE binding file to the newly published commit, and add the testscript
+   txtar test. All tests including the new one must pass.
 
 This ordering is necessary because the `@inject` name embeds a specific Go
-module version. The Go code must be fetchable at that version before CUE
-consumers can resolve the bindings. Consumers of this CUE module then depend on
-the published CUE module version (e.g. `v0.0.3`) in their `cue.mod/module.cue`.
+module version. The Go code must be fetchable at that version before the
+generated shim can resolve it. Every commit must pass `go test ./...`, so the
+test cannot be added until the Go code is published. Consumers of this CUE
+module then depend on the published CUE module version (e.g. `v0.0.3`) in
+their `cue.mod/module.cue`.
 
 Functions: `#Untitle`, `#Substr`, `#Nospace`, `#Trunc`, `#Abbrev`,
 `#Abbrevboth`, `#Initials`, `#Wrap`, `#WrapWith`, `#Indent`, `#Nindent`,

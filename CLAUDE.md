@@ -57,6 +57,8 @@ names without the `command` prefix.
 - `semver/semver.cue` - CUE package binding golang.org/x/mod/semver functions.
 - `sprig/sprig.go` - Go implementations of sprig-compatible functions.
 - `sprig/sprig.cue` - CUE package exposing sprig functions via @inject.
+- `text/template/template.go` - Go NonZero function (text/template-style truthiness).
+- `text/template/template.cue` - CUE package exposing NonZero via @inject.
 - `testdata/` - Testscript txtar files.
 - `internal/ci/` - CUE source of truth for CI workflows.
 - `.github/workflows/` - Generated CI workflow YAML (do not edit directly).
@@ -81,6 +83,24 @@ names without the `command` prefix.
 5. Fix the bug in a second commit.
 6. Cross-check against the original report.
 7. Run the full test suite (`go test ./...`).
+
+## Adding Go+CUE packages (self-referencing modules)
+
+When adding a new Go+CUE package to this module (like `sprig` or
+`text/template`), the `@inject` name embeds a Go module pseudo-version. The Go
+code must be fetchable at that version before the test can resolve it. This
+requires a two-commit sequence:
+
+1. **Commit 1** — Add the Go source, the CUE binding file, and documentation.
+   The CUE file's `@inject` pseudo-version will reference an older commit that
+   doesn't yet contain the new package, but this is acceptable because no test
+   exercises it yet. All existing tests must pass.
+2. **Commit 2** — After commit 1 is pushed and available on the Go module
+   proxy, update the `@inject` pseudo-version in the CUE file to the commit
+   from step 1, and add the testscript txtar test. All tests must pass.
+
+Never add the test in the same commit as the Go code — it will fail in CI
+because the Go module proxy won't have the package yet.
 
 ## Rules
 
