@@ -20,7 +20,6 @@ import (
 	"cuelang.org/go/cue/build"
 	"cuelang.org/go/cue/load"
 	"github.com/rogpeppe/go-internal/cache"
-	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/semver"
 	"golang.org/x/tools/go/packages"
 )
@@ -391,37 +390,9 @@ func runModTidy() error {
 		}
 	}
 
-	// Snapshot required versions before go mod tidy.
-	preGoMod, err := os.ReadFile(filepath.Join(tmpDir, "go.mod"))
-	if err != nil {
-		return fmt.Errorf("reading go.mod before tidy: %w", err)
-	}
-	preMods := parseGoModRequires(preGoMod)
-
 	// Run go mod tidy to resolve all dependencies.
 	if err := goCmd(tmpDir, "mod", "tidy"); err != nil {
 		return fmt.Errorf("go mod tidy: %w", err)
-	}
-
-	// Check for unexpected upgrades: if go mod tidy upgraded a module
-	// beyond what the @inject versions specified, the @inject versions
-	// likely reference a commit where some packages don't exist yet.
-	postGoMod, err := os.ReadFile(filepath.Join(tmpDir, "go.mod"))
-	if err != nil {
-		return fmt.Errorf("reading go.mod after tidy: %w", err)
-	}
-	postMods := parseGoModRequires(postGoMod)
-	for mod, preVer := range preMods {
-		postVer, ok := postMods[mod]
-		if !ok {
-			continue
-		}
-		if semver.Compare(postVer, preVer) > 0 {
-			return fmt.Errorf("go mod tidy upgraded %s from %s to %s; "+
-				"this likely means an @inject version references a commit "+
-				"where some packages do not yet exist — update the @inject "+
-				"pseudo-version in the published CUE module", mod, preVer, postVer)
-		}
 	}
 
 	// Copy go.mod → cue.mod/inject.mod.
@@ -763,19 +734,6 @@ replace cuelang.org/go v0.16.0 => github.com/cue-exp/cue v0.0.0-20260306105357-d
 	}
 
 	return nil
-}
-
-// parseGoModRequires extracts module path → version from a go.mod file.
-func parseGoModRequires(data []byte) map[string]string {
-	f, err := modfile.ParseLax("go.mod", data, nil)
-	if err != nil {
-		return nil
-	}
-	reqs := map[string]string{}
-	for _, r := range f.Require {
-		reqs[r.Mod.Path] = r.Mod.Version
-	}
-	return reqs
 }
 
 // writeStubFile writes a temporary Go file with blank imports for each
